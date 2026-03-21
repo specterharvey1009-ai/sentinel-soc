@@ -1,0 +1,17 @@
+{
+  "name": "sentinel-soc-proxy",
+  "version": "1.0.0",
+  "description": "CORS proxy for SENTINEL SOC — routes EDR API calls from the browser",
+  "main": "sentinel_proxy.js",
+  "scripts": {
+    "start": "node sentinel_proxy.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "node-fetch": "^3.3.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

